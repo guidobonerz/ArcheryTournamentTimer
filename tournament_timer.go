@@ -26,50 +26,60 @@ import (
 const (
 	screenWidth     = 1024
 	screenHeight    = 768
-	warnDuration    = 30
-	prepareDuration = 20
-	actionDuration  = 180
+	warnDuration    = 5
+	prepareDuration = 10
+	actionDuration  = 10
 	zero            = "000"
+)
+
+type Stage int
+
+const (
+	Halt         Stage = 0
+	InitPrepare        = 1
+	StartPrepare       = 2
+	InitAction         = 3
+	StartAction        = 4
 )
 
 var (
 	showTournamentMode = false
-	startPrepareTimer  = false
-	startActionTimer   = false
-	initPrepareMode    = false
-	initActionMode     = false
-	tournamentFont     font.Face
-	infoFontLarge      font.Face
-	infoFontSmall      font.Face
-	displayText        = ""
-	colorWhite         = color.RGBA{255, 255, 255, 255}
-	colorDarkGray      = color.RGBA{50, 50, 50, 255}
-	colorBlack         = color.RGBA{0, 0, 0, 255}
-	colorYellow        = color.RGBA{255, 255, 0, 255}
-	colorRed           = color.RGBA{255, 0, 0, 255}
-	colorGreen         = color.RGBA{0, 255, 0, 255}
-	counterColor       = colorYellow
-	pairColor          = colorWhite
-	pair               = [...]string{"A-B", "C-D", "C-D", "A-B"}
-	startTime          time.Time
-	endTime            time.Time
-	duration           int
-	round              int
-	displayFormat      string
-	audioContext       *audio.Context
-	testPlayer         *audio.Player
-	signalPlayer1      *audio.Player
-	signalPlayer2      *audio.Player
-	signalPlayer3      *audio.Player
-	logo               *ebiten.Image
-	red                *ebiten.Image
-	green              *ebiten.Image
-	yellow             *ebiten.Image
-	off                *ebiten.Image
-	redLight           *ebiten.Image
-	greenLight         *ebiten.Image
-	yellowLight        *ebiten.Image
-	signalLight        *ebiten.Image
+
+	/*
+		startPrepareTimer  = false
+		startActionTimer   = false
+		initPrepareMode    = false
+		initActionMode     = false
+	*/
+	tournamentFont font.Face
+	infoFontLarge  font.Face
+	infoFontSmall  font.Face
+	displayText    = ""
+	colorWhite     = color.RGBA{255, 255, 255, 255}
+	colorDarkGray  = color.RGBA{50, 50, 50, 255}
+	colorBlack     = color.RGBA{0, 0, 0, 255}
+	colorYellow    = color.RGBA{255, 255, 0, 255}
+	colorRed       = color.RGBA{255, 0, 0, 255}
+	colorGreen     = color.RGBA{0, 255, 0, 255}
+	counterColor   = colorYellow
+	pairColor      = colorWhite
+	pair           = [...]string{"A-B", "C-D", "C-D", "A-B"}
+	startTime      time.Time
+	endTime        time.Time
+	duration       int
+	round          int = 0
+	stage          Stage
+	displayFormat  string
+	audioContext   *audio.Context
+	testPlayer     *audio.Player
+	signalPlayer1  *audio.Player
+	signalPlayer2  *audio.Player
+	signalPlayer3  *audio.Player
+	logo           *ebiten.Image
+	red            *ebiten.Image
+	green          *ebiten.Image
+	yellow         *ebiten.Image
+	signalLight    *ebiten.Image
 )
 
 func init() {
@@ -81,12 +91,6 @@ func init() {
 		log.Fatal(err)
 	}
 	logo = ebiten.NewImageFromImage(img)
-
-	img, _, err = image.Decode(bytes.NewReader(localGraphics.Off))
-	if err != nil {
-		log.Fatal(err)
-	}
-	off = ebiten.NewImageFromImage(img)
 
 	img, _, err = image.Decode(bytes.NewReader(localGraphics.Red2))
 	if err != nil {
@@ -189,9 +193,6 @@ type Tournament struct {
 }
 
 func resetLights() {
-	//redLight = red
-	//greenLight = off
-	//yellowLight = off
 	signalLight = red
 }
 
@@ -200,9 +201,8 @@ func (t *Tournament) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		showTournamentMode = false
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyEnter) {
-		PlaySignal(2)
 		counterColor = colorYellow
-		initPrepareMode = true
+		stage = Stage(InitPrepare)
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyS) {
 		showTournamentMode = true
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyP) {
@@ -245,54 +245,45 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 	screen.Fill(colorBlack)
 
 	if showTournamentMode {
-		if initPrepareMode {
+		if stage == InitPrepare {
+			PlaySignal(2)
 			startTime = time.Now()
 			endTime = startTime
 			endTime.Add(time.Second * prepareDuration)
 			duration = prepareDuration
-			initPrepareMode = false
-			startPrepareTimer = true
-			//redLight = red
-			//greenLight = off
-			//yellowLight = off
+			stage = Stage(StartPrepare)
 			signalLight = red
-
-		} else if startPrepareTimer {
+		} else if stage == StartPrepare {
 			duration = prepareDuration - int(time.Now().Sub(endTime).Seconds())
 			if duration == 0 {
 				PlaySignal(1)
-				startPrepareTimer = false
-				initActionMode = true
+				stage = Stage(InitAction)
 			}
-		} else if initActionMode {
-
+		} else if stage == InitAction {
 			startTime = time.Now()
 			endTime = startTime
 			endTime.Add(time.Second * actionDuration)
 			duration = actionDuration
-			initActionMode = false
-			startActionTimer = true
-			//redLight = off
-			//greenLight = green
-			//yellowLight = off
+			stage = Stage(StartAction)
 			signalLight = green
-		} else if startActionTimer {
+		} else if stage == StartAction {
 			duration = actionDuration - int(time.Now().Sub(endTime).Seconds())
 			if duration <= warnDuration {
 				counterColor = colorRed
-				//redLight = off
-				//greenLight = off
-				//yellowLight = yellow
 				signalLight = yellow
 			}
 			if duration == 0 {
-				PlaySignal(3)
-				startActionTimer = false
+				stage = Stage(Halt)
 				counterColor = colorYellow
 				resetLights()
+				if round == 1 || round == 3 {
+					PlaySignal(2)
+				}
 				round++
+
 				if round > 3 {
 					round = 0
+					PlaySignal(3)
 				}
 			}
 		}
@@ -301,23 +292,6 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 		text.Draw(screen, zero, tournamentFont, 400, 350, colorDarkGray)
 		text.Draw(screen, timeLeft, tournamentFont, 400, 350, counterColor)
 		text.Draw(screen, couple, tournamentFont, 400, 700, colorWhite)
-		/*
-			var op = &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(float64(0.25), float64(0.25))
-			op.GeoM.Translate(float64(100), float64(50))
-			screen.DrawImage(redLight, op)
-
-			op = &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(float64(0.25), float64(0.25))
-			op.GeoM.Translate(float64(100), float64(270))
-			screen.DrawImage(greenLight, op)
-
-			op = &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(float64(0.25), float64(0.25))
-			op.GeoM.Translate(float64(100), float64(490))
-			screen.DrawImage(yellowLight, op)
-
-		*/
 
 		var op = &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(float64(7), float64(13))
