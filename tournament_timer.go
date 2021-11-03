@@ -24,12 +24,11 @@ import (
 )
 
 const (
-	screenWidth     = 1024
-	screenHeight    = 768
-	warnDuration    = 5
-	prepareDuration = 10
-	actionDuration  = 10
-	zero            = "000"
+	screenWidth    = 1024
+	screenHeight   = 768
+	warnDuration   = 30
+	actionDuration = 180
+	zero           = "000"
 )
 
 type Stage int
@@ -44,42 +43,37 @@ const (
 
 var (
 	showTournamentMode = false
-
-	/*
-		startPrepareTimer  = false
-		startActionTimer   = false
-		initPrepareMode    = false
-		initActionMode     = false
-	*/
-	tournamentFont font.Face
-	infoFontLarge  font.Face
-	infoFontSmall  font.Face
-	displayText    = ""
-	colorWhite     = color.RGBA{255, 255, 255, 255}
-	colorDarkGray  = color.RGBA{50, 50, 50, 255}
-	colorBlack     = color.RGBA{0, 0, 0, 255}
-	colorYellow    = color.RGBA{255, 255, 0, 255}
-	colorRed       = color.RGBA{255, 0, 0, 255}
-	colorGreen     = color.RGBA{0, 255, 0, 255}
-	counterColor   = colorYellow
-	pairColor      = colorWhite
-	pair           = [...]string{"A-B", "C-D", "C-D", "A-B"}
-	startTime      time.Time
-	endTime        time.Time
-	duration       int
-	round          int = 0
-	stage          Stage
-	displayFormat  string
-	audioContext   *audio.Context
-	testPlayer     *audio.Player
-	signalPlayer1  *audio.Player
-	signalPlayer2  *audio.Player
-	signalPlayer3  *audio.Player
-	logo           *ebiten.Image
-	red            *ebiten.Image
-	green          *ebiten.Image
-	yellow         *ebiten.Image
-	signalLight    *ebiten.Image
+	tournamentFont     font.Face
+	infoFontLarge      font.Face
+	infoFontSmall      font.Face
+	displayText        = ""
+	colorWhite         = color.RGBA{255, 255, 255, 255}
+	colorDarkGray      = color.RGBA{50, 50, 50, 255}
+	colorBlack         = color.RGBA{0, 0, 0, 255}
+	colorYellow        = color.RGBA{255, 255, 0, 255}
+	colorRed           = color.RGBA{255, 0, 0, 255}
+	colorGreen         = color.RGBA{0, 255, 0, 255}
+	counterColor       = colorYellow
+	pairColor          = colorWhite
+	startTime          time.Time
+	endTime            time.Time
+	pair               = [...]string{"A-B", "C-D", "C-D", "A-B"}
+	prepareDuration    = [...]int{10, 20}
+	duration           int
+	half               int = 0
+	round              int = 0
+	stage              Stage
+	displayFormat      string
+	audioContext       *audio.Context
+	testPlayer         *audio.Player
+	signalPlayer1      *audio.Player
+	signalPlayer2      *audio.Player
+	signalPlayer3      *audio.Player
+	logo               *ebiten.Image
+	red                *ebiten.Image
+	green              *ebiten.Image
+	yellow             *ebiten.Image
+	signalLight        *ebiten.Image
 )
 
 func init() {
@@ -87,99 +81,45 @@ func init() {
 	var err error
 	var img image.Image
 	img, _, err = image.Decode(bytes.NewReader(localGraphics.LogoPNG))
-	if err != nil {
-		log.Fatal(err)
-	}
 	logo = ebiten.NewImageFromImage(img)
-
 	img, _, err = image.Decode(bytes.NewReader(localGraphics.Red2))
-	if err != nil {
-		log.Fatal(err)
-	}
 	red = ebiten.NewImageFromImage(img)
-
 	img, _, err = image.Decode(bytes.NewReader(localGraphics.Green2))
-	if err != nil {
-		log.Fatal(err)
-	}
 	green = ebiten.NewImageFromImage(img)
-
 	img, _, err = image.Decode(bytes.NewReader(localGraphics.Yellow2))
-	if err != nil {
-		log.Fatal(err)
-	}
 	yellow = ebiten.NewImageFromImage(img)
 	resetLights()
 
 	audioContext = audio.NewContext(48000)
 	signalSound1, err := wav.Decode(audioContext, bytes.NewReader(localSounds.CarHorn))
-	if err != nil {
-		log.Fatal(err)
-	}
 	signalPlayer1, err = audioContext.NewPlayer(signalSound1)
 	signalPlayer1.SetVolume(20)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	signalSound2, err := wav.Decode(audioContext, bytes.NewReader(localSounds.CarHornDouble))
-	if err != nil {
-		log.Fatal(err)
-	}
 	signalPlayer2, err = audioContext.NewPlayer(signalSound2)
 	signalPlayer2.SetVolume(20)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	signalSound3, err := wav.Decode(audioContext, bytes.NewReader(localSounds.CarHornTriple))
-	if err != nil {
-		log.Fatal(err)
-	}
 	signalPlayer3, err = audioContext.NewPlayer(signalSound3)
 	signalPlayer3.SetVolume(20)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	testSound, err := wav.Decode(audioContext, bytes.NewReader(localSounds.Horn))
-	if err != nil {
-		log.Fatal(err)
-	}
 	testPlayer, err = audioContext.NewPlayer(testSound)
 	testPlayer.SetVolume(20)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	tt, err := opentype.Parse(localFonts.DigitalFont)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	tournamentFont, err = opentype.NewFace(tt, &opentype.FaceOptions{
+	digitalFont, err := opentype.Parse(localFonts.DigitalFont)
+	tournamentFont, err = opentype.NewFace(digitalFont, &opentype.FaceOptions{
 		Size:    450,
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	tt2, err := opentype.Parse(localFonts.OspDin)
-	if err != nil {
-		log.Fatal(err)
-	}
-	infoFontLarge, err = opentype.NewFace(tt2, &opentype.FaceOptions{
+	textFont, err := opentype.Parse(localFonts.OspDin)
+	infoFontLarge, err = opentype.NewFace(textFont, &opentype.FaceOptions{
 		Size:    32,
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	infoFontSmall, err = opentype.NewFace(tt2, &opentype.FaceOptions{
+	infoFontSmall, err = opentype.NewFace(textFont, &opentype.FaceOptions{
 		Size:    18,
 		DPI:     72,
 		Hinting: font.HintingFull,
@@ -246,26 +186,26 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 
 	if showTournamentMode {
 		if stage == InitPrepare {
+			stage = Stage(StartPrepare)
+			signalLight = red
+			duration = prepareDuration[half]
 			PlaySignal(2)
 			startTime = time.Now()
 			endTime = startTime
-			endTime.Add(time.Second * prepareDuration)
-			duration = prepareDuration
-			stage = Stage(StartPrepare)
-			signalLight = red
+			endTime.Add(time.Second * time.Duration(duration))
 		} else if stage == StartPrepare {
-			duration = prepareDuration - int(time.Now().Sub(endTime).Seconds())
+			duration = prepareDuration[half] - int(time.Now().Sub(endTime).Seconds())
 			if duration == 0 {
 				PlaySignal(1)
 				stage = Stage(InitAction)
 			}
 		} else if stage == InitAction {
+			stage = Stage(StartAction)
+			signalLight = green
+			duration = actionDuration
 			startTime = time.Now()
 			endTime = startTime
 			endTime.Add(time.Second * actionDuration)
-			duration = actionDuration
-			stage = Stage(StartAction)
-			signalLight = green
 		} else if stage == StartAction {
 			duration = actionDuration - int(time.Now().Sub(endTime).Seconds())
 			if duration <= warnDuration {
@@ -273,25 +213,29 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 				signalLight = yellow
 			}
 			if duration == 0 {
-				stage = Stage(Halt)
 				counterColor = colorYellow
 				resetLights()
-				if round == 1 || round == 3 {
+
+				if round == 0 || round == 2 {
+					half = 1
 					PlaySignal(2)
+					stage = Stage(InitPrepare)
+				} else {
+					half = 0
+					PlaySignal(3)
+					stage = Stage(Halt)
 				}
 				round++
-
 				if round > 3 {
 					round = 0
-					PlaySignal(3)
+					half = 0
 				}
 			}
 		}
 		timeLeft := fmt.Sprintf("%3d", duration)
-		couple := pair[round]
 		text.Draw(screen, zero, tournamentFont, 400, 350, colorDarkGray)
 		text.Draw(screen, timeLeft, tournamentFont, 400, 350, counterColor)
-		text.Draw(screen, couple, tournamentFont, 400, 700, colorWhite)
+		text.Draw(screen, pair[round], tournamentFont, 400, 700, colorWhite)
 
 		var op = &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(float64(7), float64(13))
