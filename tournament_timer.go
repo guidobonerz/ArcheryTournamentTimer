@@ -55,7 +55,7 @@ var (
 	colorYellow        = color.RGBA{255, 255, 0, 255}
 	colorRed           = color.RGBA{255, 0, 0, 255}
 	colorGreen         = color.RGBA{0, 255, 0, 255}
-	counterColor       = colorYellow
+	countDownColor     = colorYellow
 	pairColor          = colorWhite
 	startTime          time.Time
 	endTime            time.Time
@@ -151,12 +151,12 @@ func (t *Tournament) Update() error {
 
 	if ebiten.IsKeyPressed(ebiten.KeyH) {
 		showTournamentView = false
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyEnter) {
-		counterColor = colorYellow
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyEnter) && showTournamentView {
+		countDownColor = colorYellow
 		stage = Stage(InitPrepare)
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyT) {
 		showTournamentView = true
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyB) {
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyEscape) && showTournamentView {
 		cancel = true
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyN) && showTournamentView {
 		round = 0
@@ -232,12 +232,12 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 		} else if stage == StartAction {
 			duration = actionDuration - int(time.Now().Sub(endTime).Seconds())
 			if duration <= warnDuration {
-				counterColor = colorRed
+				countDownColor = colorRed
 				signalLight = yellow
 			}
 			if duration == 0 || cancel {
 				cancel = false
-				counterColor = colorYellow
+				countDownColor = colorYellow
 				signalLight = red
 
 				if round == 0 || round == 2 {
@@ -261,7 +261,7 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 		halfText := fmt.Sprintf("HALF :%1d", half+1)
 		clockText := fmt.Sprintf("%02d:%02d:%02d", time.Now().Hour(), time.Now().Minute(), time.Now().Second())
 		text.Draw(screen, zero, tournamentFont, 400, 350, colorDarkGray)
-		text.Draw(screen, timeLeft, tournamentFont, 400, 350, counterColor)
+		text.Draw(screen, timeLeft, tournamentFont, 400, 350, countDownColor)
 		text.Draw(screen, pair[round], tournamentFont, 400, 700, colorWhite)
 		text.Draw(screen, roundText, roundFont, 440, 395, colorWhite)
 		text.Draw(screen, halfText, roundFont, 640, 395, colorWhite)
@@ -274,7 +274,7 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 	} else {
 		text.Draw(screen, "Turnier Timer", infoFontLarge, 200, 50, colorWhite)
 		text.Draw(screen, "BSV Eppinghoven 1743 e.V.", infoFontSmall, 200, 80, colorWhite)
-		text.Draw(screen, "[T]urnier Ansicht (Start mit <RETURN>)\n[N]eustart\nPasse vorzeitig [b]eenden\n[S]oundcheck\n[H]ilfe anzeigen\nE[x]it", infoFontLarge, 200, 150, colorWhite)
+		text.Draw(screen, "[T]urnier Ansicht (Start mit <RETURN>)\n[ESC] Passe vorzeitig beenden\n[N]eustart\n[S]oundcheck\n[H]ilfe anzeigen\nE[x]it", infoFontLarge, 200, 150, colorWhite)
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(0), float64(30))
 		screen.DrawImage(logo, op)
