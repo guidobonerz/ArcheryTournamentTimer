@@ -44,6 +44,7 @@ const (
 var (
 	showTournamentView = false
 	cancel             = false
+	fullscreen         = true
 	tournamentFont     font.Face
 	infoFontLarge      font.Face
 	infoFontSmall      font.Face
@@ -167,6 +168,9 @@ func (t *Tournament) Update() error {
 		duration = 0
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyS) {
 		PlaySound(0)
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyF11) {
+		fullscreen = !fullscreen
+		ebiten.SetFullscreen(fullscreen)
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyX) {
 		os.Exit(0)
 	}
@@ -274,7 +278,7 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 	} else {
 		text.Draw(screen, "Turnier Timer", infoFontLarge, 200, 50, colorWhite)
 		text.Draw(screen, "BSV Eppinghoven 1743 e.V.", infoFontSmall, 200, 80, colorWhite)
-		text.Draw(screen, "[T]urnier Ansicht (Start mit <RETURN>)\n[ESC] Passe vorzeitig beenden\n[N]eustart\n[S]oundcheck\n[H]ilfe anzeigen\nE[x]it", infoFontLarge, 200, 150, colorWhite)
+		text.Draw(screen, "[T]urnier Ansicht (Start mit <RETURN>)\n[ESC] Passe vorzeitig beenden\n[N]eustart\n[S]oundcheck\n[F11] Vollbildschirm\n[H]ilfe anzeigen\nE[x]it", infoFontLarge, 200, 150, colorWhite)
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(0), float64(30))
 		screen.DrawImage(logo, op)
@@ -296,7 +300,7 @@ func main() {
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Archery Tournament Timer")
-	ebiten.SetFullscreen(true)
+	ebiten.SetFullscreen(fullscreen)
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 
 	if err := ebiten.RunGame(&Tournament{}); err != nil {
