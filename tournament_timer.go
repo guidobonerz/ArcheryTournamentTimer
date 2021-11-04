@@ -42,10 +42,12 @@ const (
 )
 
 var (
-	showTournamentMode = false
+	showTournamentView = false
+	cancel             = false
 	tournamentFont     font.Face
 	infoFontLarge      font.Face
 	infoFontSmall      font.Face
+	roundFont          font.Face
 	displayText        = ""
 	colorWhite         = color.RGBA{255, 255, 255, 255}
 	colorDarkGray      = color.RGBA{50, 50, 50, 255}
@@ -69,6 +71,7 @@ var (
 	signalPlayer1      *audio.Player
 	signalPlayer2      *audio.Player
 	signalPlayer3      *audio.Player
+	buzzerPlayer       *audio.Player
 	logo               *ebiten.Image
 	red                *ebiten.Image
 	green              *ebiten.Image
@@ -88,7 +91,8 @@ func init() {
 	green = ebiten.NewImageFromImage(img)
 	img, _, err = image.Decode(bytes.NewReader(localGraphics.Yellow2))
 	yellow = ebiten.NewImageFromImage(img)
-	resetLights()
+
+	signalLight = red
 
 	audioContext = audio.NewContext(48000)
 	signalSound1, err := wav.Decode(audioContext, bytes.NewReader(localSounds.CarHorn))
@@ -107,9 +111,19 @@ func init() {
 	testPlayer, err = audioContext.NewPlayer(testSound)
 	testPlayer.SetVolume(20)
 
+	buzzerSound, err := wav.Decode(audioContext, bytes.NewReader(localSounds.Buzzer))
+	buzzerPlayer, err = audioContext.NewPlayer(buzzerSound)
+	buzzerPlayer.SetVolume(20)
+
 	digitalFont, err := opentype.Parse(localFonts.DigitalFont)
 	tournamentFont, err = opentype.NewFace(digitalFont, &opentype.FaceOptions{
 		Size:    450,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+
+	roundFont, err = opentype.NewFace(digitalFont, &opentype.FaceOptions{
+		Size:    40,
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
@@ -127,36 +141,39 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 }
 
 type Tournament struct {
 }
 
-func resetLights() {
-	signalLight = red
-}
-
 func (t *Tournament) Update() error {
 
-	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
-		showTournamentMode = false
+	if ebiten.IsKeyPressed(ebiten.KeyH) {
+		showTournamentView = false
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyEnter) {
 		counterColor = colorYellow
 		stage = Stage(InitPrepare)
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyS) {
-		showTournamentMode = true
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyP) {
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyT) {
-		PlaySignal(0)
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyR) {
-		showTournamentMode = true
+		showTournamentView = true
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyB) {
+		cancel = true
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyN) && showTournamentView {
+		round = 0
+		half = 0
+		stage = Stage(Halt)
+		PlaySound(10)
+		signalLight = red
+		duration = 0
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyS) {
+		PlaySound(0)
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyX) {
 		os.Exit(0)
 	}
 
 	return nil
 }
-func PlaySignal(count int) {
+func PlaySound(count int) {
 	if count == 0 {
 		if !testPlayer.IsPlaying() {
 			testPlayer.Rewind()
@@ -172,11 +189,17 @@ func PlaySignal(count int) {
 			signalPlayer2.Rewind()
 			signalPlayer2.Play()
 		}
-	} else {
+	} else if count == 3 {
 		if !signalPlayer3.IsPlaying() {
 			signalPlayer3.Rewind()
 			signalPlayer3.Play()
 		}
+	} else if count == 10 {
+		if !buzzerPlayer.IsPlaying() {
+			buzzerPlayer.Rewind()
+			buzzerPlayer.Play()
+		}
+	} else {
 	}
 
 }
@@ -184,19 +207,19 @@ func PlaySignal(count int) {
 func (t *Tournament) Draw(screen *ebiten.Image) {
 	screen.Fill(colorBlack)
 
-	if showTournamentMode {
+	if showTournamentView {
 		if stage == InitPrepare {
 			stage = Stage(StartPrepare)
 			signalLight = red
 			duration = prepareDuration[half]
-			PlaySignal(2)
+			PlaySound(2)
 			startTime = time.Now()
 			endTime = startTime
 			endTime.Add(time.Second * time.Duration(duration))
 		} else if stage == StartPrepare {
 			duration = prepareDuration[half] - int(time.Now().Sub(endTime).Seconds())
 			if duration == 0 {
-				PlaySignal(1)
+				PlaySound(1)
 				stage = Stage(InitAction)
 			}
 		} else if stage == InitAction {
@@ -212,17 +235,18 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 				counterColor = colorRed
 				signalLight = yellow
 			}
-			if duration == 0 {
+			if duration == 0 || cancel {
+				cancel = false
 				counterColor = colorYellow
-				resetLights()
+				signalLight = red
 
 				if round == 0 || round == 2 {
 					half = 1
-					PlaySignal(2)
+					PlaySound(2)
 					stage = Stage(InitPrepare)
 				} else {
 					half = 0
-					PlaySignal(3)
+					PlaySound(3)
 					stage = Stage(Halt)
 				}
 				round++
@@ -233,9 +257,15 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 			}
 		}
 		timeLeft := fmt.Sprintf("%3d", duration)
+		roundText := fmt.Sprintf("ROUND:%1d", round+1)
+		halfText := fmt.Sprintf("HALF :%1d", half+1)
+		clockText := fmt.Sprintf("%02d:%02d:%02d", time.Now().Hour(), time.Now().Minute(), time.Now().Second())
 		text.Draw(screen, zero, tournamentFont, 400, 350, colorDarkGray)
 		text.Draw(screen, timeLeft, tournamentFont, 400, 350, counterColor)
 		text.Draw(screen, pair[round], tournamentFont, 400, 700, colorWhite)
+		text.Draw(screen, roundText, roundFont, 440, 395, colorWhite)
+		text.Draw(screen, halfText, roundFont, 640, 395, colorWhite)
+		text.Draw(screen, clockText, roundFont, 840, 395, colorWhite)
 
 		var op = &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(float64(7), float64(13))
@@ -244,7 +274,7 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 	} else {
 		text.Draw(screen, "Turnier Timer", infoFontLarge, 200, 50, colorWhite)
 		text.Draw(screen, "BSV Eppinghoven 1743 e.V.", infoFontSmall, 200, 80, colorWhite)
-		text.Draw(screen, "[S]tart\n[H]alt\n[T]est\n[M]ittagspause\n[R]eset\nE[x]it", infoFontLarge, 200, 150, colorWhite)
+		text.Draw(screen, "[T]urnier Ansicht (Start mit <RETURN>)\n[N]eustart\nPasse vorzeitig [b]eenden\n[S]oundcheck\n[H]ilfe anzeigen\nE[x]it", infoFontLarge, 200, 150, colorWhite)
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(0), float64(30))
 		screen.DrawImage(logo, op)
