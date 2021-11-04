@@ -1,4 +1,4 @@
 # Archery Tournament Timer
 
 ## Screenshot
-![screenshot1](https://github.com/guidobonerz/nerdsuite/blob/master/docs/screenshot.png)
+![screenshot1](https://github.com/guidobonerz/ArcheryTournamentTimer/blob/master/docs/screenshot.png)
