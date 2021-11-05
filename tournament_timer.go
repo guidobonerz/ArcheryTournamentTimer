@@ -112,7 +112,7 @@ func init() {
 	testPlayer, err = audioContext.NewPlayer(testSound)
 	testPlayer.SetVolume(20)
 
-	buzzerSound, err := wav.Decode(audioContext, bytes.NewReader(localSounds.Buzzer))
+	buzzerSound, err := wav.Decode(audioContext, bytes.NewReader(localSounds.Buzzer2))
 	buzzerPlayer, err = audioContext.NewPlayer(buzzerSound)
 	buzzerPlayer.SetVolume(20)
 
