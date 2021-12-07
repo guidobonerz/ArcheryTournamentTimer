@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -24,11 +25,9 @@ import (
 )
 
 const (
-	screenWidth    = 1024
-	screenHeight   = 768
-	warnDuration   = 30
-	actionDuration = 180
-	zero           = "000"
+	screenWidth  = 1024
+	screenHeight = 768
+	zero         = "000"
 )
 
 type Stage int
@@ -42,9 +41,11 @@ const (
 )
 
 var (
-	showTournamentView = false
-	cancel             = false
-	fullscreen         = true
+	actionDuration     int = 180
+	warnDuration       int = 30
+	showTournamentView     = false
+	cancel                 = false
+	fullscreen             = true
 	tournamentFont     font.Face
 	infoFontLarge      font.Face
 	infoFontSmall      font.Face
@@ -232,7 +233,7 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 			duration = actionDuration
 			startTime = time.Now()
 			endTime = startTime
-			endTime.Add(time.Second * actionDuration)
+			endTime.Add(time.Second * time.Duration(actionDuration))
 		} else if stage == StartAction {
 			duration = actionDuration - int(time.Now().Sub(endTime).Seconds())
 			if duration <= warnDuration {
@@ -275,6 +276,7 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 		op.GeoM.Scale(float64(7), float64(13))
 		op.GeoM.Translate(float64(0), float64(50))
 		screen.DrawImage(signalLight, op)
+
 	} else {
 		text.Draw(screen, "Turnier Timer", infoFontLarge, 200, 50, colorWhite)
 		text.Draw(screen, "BSV Eppinghoven 1743 e.V.", infoFontSmall, 200, 80, colorWhite)
@@ -297,6 +299,11 @@ func (t *Tournament) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func main() {
+
+	flag.BoolVar(&fullscreen, "f", true, "Fullscreen Mode")
+	flag.IntVar(&actionDuration, "d", 180, "Action time (seconds)")
+	flag.IntVar(&warnDuration, "w", 30, "Warn time (seconds)")
+	flag.Parse()
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Archery Tournament Timer")
