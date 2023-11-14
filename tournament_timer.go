@@ -31,6 +31,7 @@ const (
 )
 
 type Stage int
+type View int
 
 const (
 	Halt         Stage = 0
@@ -40,45 +41,53 @@ const (
 	StartAction        = 4
 )
 
+const (
+	MainView          View = 0
+	HelpView               = 1
+	ConfigurationView      = 2
+	TournamentView         = 3
+)
+
 var (
-	actionDuration     int = 180
-	warnDuration       int = 30
-	showTournamentView     = false
-	cancel                 = false
-	fullscreen             = true
-	tournamentFont     font.Face
-	infoFontLarge      font.Face
-	infoFontSmall      font.Face
-	roundFont          font.Face
-	displayText        = ""
-	colorWhite         = color.RGBA{255, 255, 255, 255}
-	colorDarkGray      = color.RGBA{50, 50, 50, 255}
-	colorBlack         = color.RGBA{0, 0, 0, 255}
-	colorYellow        = color.RGBA{255, 255, 0, 255}
-	colorRed           = color.RGBA{255, 0, 0, 255}
-	colorGreen         = color.RGBA{0, 255, 0, 255}
-	countDownColor     = colorYellow
-	pairColor          = colorWhite
-	startTime          time.Time
-	endTime            time.Time
-	pair               = [...]string{"A-B", "C-D", "C-D", "A-B"}
-	prepareDuration    = [...]int{10, 20}
-	duration           int
-	half               int = 0
-	round              int = 0
-	stage              Stage
-	displayFormat      string
-	audioContext       *audio.Context
-	testPlayer         *audio.Player
-	signalPlayer1      *audio.Player
-	signalPlayer2      *audio.Player
-	signalPlayer3      *audio.Player
-	buzzerPlayer       *audio.Player
-	logo               *ebiten.Image
-	red                *ebiten.Image
-	green              *ebiten.Image
-	yellow             *ebiten.Image
-	signalLight        *ebiten.Image
+	actionDuration int = 120
+	warnDuration   int = 30
+	//showTournamentView     = false
+	cancel          = false
+	fullscreen      = true
+	tournamentFont  font.Face
+	infoFontLarge   font.Face
+	infoFontSmall   font.Face
+	roundFont       font.Face
+	displayText     = ""
+	colorWhite      = color.RGBA{255, 255, 255, 255}
+	colorDarkGray   = color.RGBA{50, 50, 50, 255}
+	colorBlack      = color.RGBA{0, 0, 0, 255}
+	colorYellow     = color.RGBA{255, 255, 0, 255}
+	colorRed        = color.RGBA{255, 0, 0, 255}
+	colorGreen      = color.RGBA{0, 255, 0, 255}
+	countDownColor  = colorYellow
+	pairColor       = colorWhite
+	startTime       time.Time
+	endTime         time.Time
+	pair            = [...]string{"A-B", "C-D", "C-D", "A-B"}
+	prepareDuration = [...]int{10, 20}
+	duration        int
+	half            int = 0
+	round           int = 0
+	stage           Stage
+	view            View
+	displayFormat   string
+	audioContext    *audio.Context
+	testPlayer      *audio.Player
+	signalPlayer1   *audio.Player
+	signalPlayer2   *audio.Player
+	signalPlayer3   *audio.Player
+	buzzerPlayer    *audio.Player
+	logo            *ebiten.Image
+	red             *ebiten.Image
+	green           *ebiten.Image
+	yellow          *ebiten.Image
+	signalLight     *ebiten.Image
 )
 
 func init() {
@@ -152,15 +161,19 @@ type Tournament struct {
 func (t *Tournament) Update() error {
 
 	if ebiten.IsKeyPressed(ebiten.KeyH) {
-		showTournamentView = false
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyEnter) && showTournamentView {
+		view = HelpView
+	} else if ebiten.IsKeyPressed(ebiten.KeyK) {
+		view = ConfigurationView
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyEnter) && view == TournamentView {
 		countDownColor = colorYellow
 		stage = Stage(InitPrepare)
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyT) {
-		showTournamentView = true
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyEscape) && showTournamentView {
+		view = TournamentView
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyEscape) && view == TournamentView {
 		cancel = true
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyN) && showTournamentView {
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyEscape) && view == HelpView {
+		view = MainView
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyN) && view == TournamentView {
 		round = 0
 		half = 0
 		stage = Stage(Halt)
@@ -170,6 +183,9 @@ func (t *Tournament) Update() error {
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyS) {
 		PlaySound(0)
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyF11) {
+		fullscreen = !fullscreen
+		ebiten.SetFullscreen(fullscreen)
+	} else if inpututil.IsKeyJustReleased(ebiten.KeyK) {
 		fullscreen = !fullscreen
 		ebiten.SetFullscreen(fullscreen)
 	} else if inpututil.IsKeyJustReleased(ebiten.KeyX) {
@@ -212,7 +228,7 @@ func PlaySound(count int) {
 func (t *Tournament) Draw(screen *ebiten.Image) {
 	screen.Fill(colorBlack)
 
-	if showTournamentView {
+	if view == TournamentView {
 		if stage == InitPrepare {
 			stage = Stage(StartPrepare)
 			signalLight = red
@@ -277,13 +293,17 @@ func (t *Tournament) Draw(screen *ebiten.Image) {
 		op.GeoM.Translate(float64(0), float64(50))
 		screen.DrawImage(signalLight, op)
 
-	} else {
+	} else if view == MainView {
 		text.Draw(screen, "Turnier Timer", infoFontLarge, 200, 50, colorWhite)
 		text.Draw(screen, "BSV Eppinghoven 1743 e.V.", infoFontSmall, 200, 80, colorWhite)
-		text.Draw(screen, "[T]urnier Ansicht (Start mit <RETURN>)\n[ESC] Passe vorzeitig beenden\n[N]eustart\n[S]oundcheck\n[F11] Vollbild\n[H]ilfe anzeigen\nE[x]it", infoFontLarge, 200, 150, colorWhite)
+		text.Draw(screen, "[T]urnier\n[H]ilfe\n[K]onfiguration\nE[x]it", infoFontLarge, 200, 150, colorWhite)
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(0), float64(30))
 		screen.DrawImage(logo, op)
+	} else if view == ConfigurationView {
+	} else if view == HelpView {
+		text.Draw(screen, "Turnier Timer Hilfe", infoFontLarge, 200, 50, colorWhite)
+		text.Draw(screen, "[T]urnier Ansicht\n  - [RETURN] Start\n  - [ESC] Passe vorzeitig beenden\n  - [N]eustart\n[S]oundcheck\n[F11] Vollbild\n[H]ilfe anzeigen\n[K]onfiguration\nE[x]it", infoFontLarge, 200, 150, colorWhite)
 	}
 }
 
@@ -301,7 +321,7 @@ func (t *Tournament) Layout(outsideWidth, outsideHeight int) (int, int) {
 func main() {
 
 	flag.BoolVar(&fullscreen, "f", true, "Fullscreen Mode")
-	flag.IntVar(&actionDuration, "d", 180, "Action time (seconds)")
+	flag.IntVar(&actionDuration, "d", 120, "Action time (seconds)")
 	flag.IntVar(&warnDuration, "w", 30, "Warn time (seconds)")
 	flag.Parse()
 
